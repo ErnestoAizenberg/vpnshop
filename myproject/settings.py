@@ -12,8 +12,8 @@ TELEGRAM_BOT_TOKEN: Optional[str] = os.getenv("TELEGRAM_BOT_TOKEN")
 
 MIMI_APP_URL = "https://vite.pythonanywhere.com"
 
-ALLOWED_HOSTS = ["*"]
-
+ALLOWED_HOSTS = ["*", "https://vite.pythonywhere.com"]
+CORS_ALLOWED_ORIGINS = ["https://vite.pythonywhere.com", "http://localhost:8007"]
 # Application definition
 
 INSTALLED_APPS = [
@@ -23,11 +23,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "main",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
