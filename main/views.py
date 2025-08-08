@@ -29,7 +29,7 @@ def get_subscription(request, user_id):
             {
                 "userId": str(user.user_id),
                 "username": user.vpn_username,
-                "status": user.status,
+                "userStatus": user.status,
                 "expiresAt": user.expires_at.strftime("%d.%m.%Y"),
                 "daysLeft": user.days_left,
                 "trafficUsed": f"{user.traffic_used:.2f} GiB",
