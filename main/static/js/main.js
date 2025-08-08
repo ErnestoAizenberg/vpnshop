@@ -1,11 +1,11 @@
 // Constants
-const BASE_URL = 'https://vite.pythonywhere.com'
-const API_ENDPOINT = 'https://vite.pythonywhere.com/api';
+const BASE_URL = 'https://vite.pythonanywhere.com'
+const API_ENDPOINT = 'https://vite.pythonanywhere.com/api'
 
 // State management
 const appState = {
   user: {
-    userId: '',
+    userId: window.location.pathname.split('/').pop(),
     username: '',
     status: '',
     vpnConfig: '',
@@ -286,7 +286,7 @@ async function fetchUserData(userId) {
  */
 function formatUserData(data) {
   return {
-    userId: data.userId,
+    userId: appState.user.userId,
     username: data.username || 'N/A',
     status: data.status || 'Неизвестно',
     expiresAt: data.expiresAt || 'N/A',
@@ -565,6 +565,7 @@ function addSubscription(userId) {
   }
 
   const userConfigLink = `${encodeURIComponent(BASE_URL)}/${userId}`;
+  console.log(`userConfigLink: ${userConfigLink}`);
 
   const deepLinks = {
     clash: `clash://install-config?url=${userConfigLink}`,
@@ -572,7 +573,7 @@ function addSubscription(userId) {
     v2raytun: `v2raytun://import?url=${userConfigLink}`
   };
 
-  const appLink = deepLinks[appState.currentProvider] || BASE_URL;
+  const appLink = deepLinks[appState.currentProvider] || `${BASE_URL}/${userId}`;
   window.open(appLink, '_blank');
 }
 
