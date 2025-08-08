@@ -583,8 +583,7 @@ function addSubscription(userId) {
 async function initApp() {
   try {
     // Load user data
-    const userId = 1; // In a real app, this would come from authentication
-    const userData = await fetchUserData(userId);
+    const userData = await fetchUserData(appState.user.userId);
     appState.user = formatUserData(userData);
 
     // Render the app
