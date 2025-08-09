@@ -32,8 +32,8 @@ def get_subscription(request, user_id):
                 "userStatus": user.status,
                 "expiresAt": user.expires_at.strftime("%d.%m.%Y"),
                 "daysLeft": user.days_left,
-                "trafficUsed": f"{user.traffic_used:.2f} GiB",
-                "trafficLimit": f"{user.traffic_limit:.2f} GiB",
+                "trafficUsed": user.traffic_used,
+                "trafficLimit": user.traffic_limit,
                 "trafficPercent": round(
                     (user.traffic_used / user.traffic_limit) * 100, 1
                 ),
