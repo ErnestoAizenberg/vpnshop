@@ -19,10 +19,13 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    PreCheckoutQueryHandler,
     filters,
 )
 
 from dotenv import load_dotenv
+
+from vpnbot.utils import save_payment_to_db, activate_subscription, notify_admin, get_tariff_by_id
 
 load_dotenv('.env')
 
@@ -250,6 +253,88 @@ async def pay_tariff(update: Update, context: CallbackContext) -> None:
             )
 
 
+async def precheckout_callback(update: Update, context: CallbackContext):
+    query = update.pre_checkout_query
+    await query.answer(ok=True)  # Always confirm for testing
+
+
+async def successful_payment(update: Update, context: CallbackContext) -> None:
+    """Обработка успешного платежа с активацией подписки"""
+    payment = update.message.successful_payment
+    user = update.effective_user
+
+    try:
+        selected_tariff = context.user_data.get("selected_tariff")
+        # Сохраняем информацию об оплате в БД
+        payment_data = {
+            "user_id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "amount": payment.total_amount / 100,
+            "tariff": selected_tariff,
+            "payment_date": datetime.now(),
+            "payload": payment.invoice_payload
+        }
+
+        save_payment_to_db(payment_data)
+        original_message_id = context.user_data.get("last_message_id")
+        if original_message_id:
+            await context.bot.edit_message_text(
+                chat_id=user.id,
+                message_id=original_message_id,
+                text=f"🎉 Оплата прошла успешно!\n\n"
+                     f"Тариф: {selected_tariff}\n"
+                     f"Спасибо за покупку!",
+                reply_markup=build_keyboard("premium_active")
+            )
+        else:
+            await update.message.reply_text(
+                text=f"🎉 Оплата прошла успешно!\n\n"
+                     f"Тариф: {selected_tariff}\n"
+                     f"Подписка активна до: {end_date_str}\n\n"
+                     f"Спасибо за покупку!",
+                reply_markup=build_keyboard("premium_active")
+            )
+
+        await context.bot.send_message(
+            chat_id=user.id,
+            text="Доступна новая подписка!"
+        )
+
+    except Exception as e:
+        logger.error(f"Error processing payment: {e}", exc_info=True)
+        await context.bot.send_message(
+            chat_id=user.id,
+            text="⚠️ Произошла ошибка при активации подписки. Пожалуйста, свяжитесь с поддержкой."
+        )
+
+        # Уведомление администратора
+        notify_admin(f"Ошибка активации подписки для пользователя {user.id}: {str(e)}")
+
+
+async def successful_payment(update: Update, context: CallbackContext) -> None:
+    """Обработка успешного платежа"""
+    payment = update.message.successful_payment
+    user_id = update.effective_user.id
+
+    # Сохраняем информацию об оплате в БД
+    save_payment_to_db(
+        user_id=user_id,
+        amount=payment.total_amount/100,
+        currency=payment.currency,
+        payload=payment.invoice_payload
+    )
+
+    # Активируем подписку для пользователя
+    activate_subscription(user_id) # также нужно передать данные платежа
+
+    await update.message.reply_text(
+        "🎉 Оплата прошла успешно! Подписка активирована.\n\n"
+        "Спасибо за покупку!",
+        reply_markup=build_keyboard(context.user_data.get('state', None))
+    )
+
+
 async def show_subscription(update: Update, context: CallbackContext) -> None:
     """Handler for checking VPN status."""
     if not update.message or not update.message.from_user:
@@ -398,6 +483,31 @@ async def error_handler(update: object, context: CallbackContext) -> None:
         )
 
 
+handlers = [
+    CommandHandler("start", start),
+    CommandHandler("status", show_subscription),
+    CommandHandler("config", get_vpn_config),
+    CommandHandler("support", contact_support),
+    CommandHandler("admin", admin_panel),
+    MessageHandler(
+        filters.TEXT & filters.Regex(r"^Моя подписка$"),
+        show_subscription,
+    ),
+    CallbackQueryHandler(button_callback, pattern="^replace_msg$"),
+    CallbackQueryHandler(handle_new_buttons),
+    MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment),
+    PreCheckoutQueryHandler(precheckout_callback),
+]
+
+
+
+def register_handlers(application, handlers):
+    """Register handlers"""
+    for handler in handlers:
+        application.add_handler(handler)
+
+    application.add_error_handler(error_handler)
+
 def main() -> None:
     """Start the bot."""
     bot_token = os.getenv("BOT_TOKEN")
@@ -405,24 +515,7 @@ def main() -> None:
         raise ValueError("BOT_TOKEN environment variable not set")
 
     application = Application.builder().token(bot_token).build()
-
-    handlers = [
-        CommandHandler("start", start),
-        CommandHandler("status", show_subscription),
-        CommandHandler("config", get_vpn_config),
-        CommandHandler("support", contact_support),
-        CommandHandler("admin", admin_panel),
-        MessageHandler(
-            filters.TEXT & filters.Regex(r"^Моя подписка$"),
-            show_subscription,
-        ),
-        CallbackQueryHandler(button_callback, pattern="^replace_msg$"),
-        CallbackQueryHandler(handle_new_buttons),
-    ]
-    for handler in handlers:
-        application.add_handler(handler)
-
-    application.add_error_handler(error_handler)
+    register_handlers(application, handlers)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

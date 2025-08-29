@@ -1,6 +1,6 @@
 // Constants
-const BASE_URL = 'https://vite.pythonanywhere.com'
-const API_ENDPOINT = 'https://vite.pythonanywhere.com/api'
+const BASE_URL = 'http://localhost:8000'
+const API_ENDPOINT = 'http://localhost:8000/api'
 
 // State management
 const appState = {
@@ -265,16 +265,38 @@ const icons = {
  * @returns {Promise<Object>} - The user subscription data
  */
 async function fetchUserData(userId) {
+  const url = `${API_ENDPOINT}/subscription/${userId}`;
+
+  console.log(`[API Request] Fetching user data for ID: ${userId}`);
+  console.debug(`[API Request] URL: ${url}`);
+  const startTime = new Date().toISOString();
+  console.debug(`[API Request] Started at: ${startTime}`);
+
   try {
-    const url = `${API_ENDPOINT}/subscription/${userId}`
     const response = await fetch(url);
+    const requestDuration = Date.now() - startTime;
+
+    console.debug(`[API Response] Received in ${requestDuration}ms`);
+    console.debug(`[API Response] Status: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
+      const errorData = await response.text().catch(() => 'Unable to parse error response');
+      console.error(`[API Error] HTTP error! Status: ${response.status}`);
+      console.error(`[API Error] Response body:`, errorData);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     const data = await response.json();
+    console.debug('[API Success] Received data:', data);
     return data;
+
   } catch (error) {
-    console.error('Error fetching user data:', error);
+    console.error(`[API Failure] Error fetching user data for ID ${userId}:`, {
+      error: error.message,
+      stack: error.stack,
+      url: url,
+      timestamp: new Date().toISOString()
+    });
     throw error;
   }
 }
@@ -288,7 +310,7 @@ function formatUserData(data) {
   return {
     userId: appState.user.userId,
     username: data.username || 'N/A',
-    status: data.status || 'Неизвестно',
+    status: data.userStatus || 'Неизвестно',
     expiresAt: data.expiresAt || 'N/A',
     daysLeft: data.daysLeft || 0,
     trafficUsed: `${data.trafficUsed || 0} GiB`,
